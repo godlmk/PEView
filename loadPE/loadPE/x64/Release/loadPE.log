@@ -1,0 +1,20 @@
+﻿  loadPE.cpp
+C:\loadPE\loadPE.cpp(84,48): warning C4311: “类型强制转换”: 从“HICON”到“DWORD”的指针截断
+C:\loadPE\loadPE.cpp(84,48): warning C4302: “类型强制转换”: 从“HICON”到“DWORD”截断
+C:\loadPE\loadPE.cpp(329,49): warning C4311: “类型强制转换”: 从“BYTE *”到“DWORD”的指针截断
+C:\loadPE\loadPE.cpp(329,49): warning C4302: “类型强制转换”: 从“BYTE *”到“DWORD”截断
+C:\loadPE\loadPE.cpp(423,33): warning C4477: “swprintf_s”: 格式字符串“%016lX”需要类型“unsigned long”的参数，但可变参数 1 拥有了类型“DWORD_PTR”
+      C:\loadPE\loadPE.cpp(423,33):
+      请考虑在格式字符串中使用“%llX”
+      C:\loadPE\loadPE.cpp(423,33):
+      请考虑在格式字符串中使用“%IX”
+      C:\loadPE\loadPE.cpp(423,33):
+      请考虑在格式字符串中使用“%I64X”
+  
+C:\loadPE\loadPE.cpp(475,19): warning C4244: “初始化”: 从“ULONGLONG”转换到“DWORD”，可能丢失数据
+  正在生成代码
+  5 of 1047 functions ( 0.5%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    3 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  loadPE.vcxproj -> C:\loadPE\x64\Release\loadPE.exe

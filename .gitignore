@@ -1,0 +1,7 @@
+**/.vs/
+**/out/
+**/CMakeFiles/
+**/*.dll
+**/*.lib
+**/Debug
+**/*.obj

@@ -1,0 +1,23 @@
+﻿  PETools.cpp
+C:\PEtool\loadPE\PETools.cpp(65,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(70,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(75,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(78,2): warning C4002: 类函数宏的调用“assert”参数过多
+C:\PEtool\loadPE\PETools.cpp(84,30): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(86,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(99,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(135,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(141,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(159,30): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(172,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(177,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(182,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(185,2): warning C4002: 类函数宏的调用“assert”参数过多
+C:\PEtool\loadPE\PETools.cpp(191,30): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(193,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(206,31): warning C4114: 多次使用同一类型限定符
+  正在生成代码
+  Previous IPDB and IOBJ mismatch, fall back to full compilation.
+  All 1049 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  loadPE.vcxproj -> C:\PEtool\loadPE\Release\loadPE.exe
