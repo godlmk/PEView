@@ -1,20 +1,66 @@
-﻿  loadPE.cpp
-C:\loadPE\loadPE.cpp(84,48): warning C4311: “类型强制转换”: 从“HICON”到“DWORD”的指针截断
-C:\loadPE\loadPE.cpp(84,48): warning C4302: “类型强制转换”: 从“HICON”到“DWORD”截断
-C:\loadPE\loadPE.cpp(329,49): warning C4311: “类型强制转换”: 从“BYTE *”到“DWORD”的指针截断
-C:\loadPE\loadPE.cpp(329,49): warning C4302: “类型强制转换”: 从“BYTE *”到“DWORD”截断
-C:\loadPE\loadPE.cpp(423,33): warning C4477: “swprintf_s”: 格式字符串“%016lX”需要类型“unsigned long”的参数，但可变参数 1 拥有了类型“DWORD_PTR”
-      C:\loadPE\loadPE.cpp(423,33):
-      请考虑在格式字符串中使用“%llX”
-      C:\loadPE\loadPE.cpp(423,33):
-      请考虑在格式字符串中使用“%IX”
-      C:\loadPE\loadPE.cpp(423,33):
-      请考虑在格式字符串中使用“%I64X”
-  
-C:\loadPE\loadPE.cpp(475,19): warning C4244: “初始化”: 从“ULONGLONG”转换到“DWORD”，可能丢失数据
-  正在生成代码
-  5 of 1047 functions ( 0.5%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    3 functions had inline decision re-evaluated but remain unchanged
-  已完成代码的生成
-  loadPE.vcxproj -> C:\loadPE\x64\Release\loadPE.exe
+﻿  PETools.cpp
+C:\PEtool\loadPE\PETools.cpp(25,57): warning C4311: “类型强制转换”: 从“LPVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(25,57): warning C4302: “类型强制转换”: 从“LPVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(25,37): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PIMAGE_NT_HEADERS”
+C:\PEtool\loadPE\PETools.cpp(51,10): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+C:\PEtool\loadPE\PETools.cpp(65,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(70,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(70,63): warning C4311: “类型强制转换”: 从“PBYTE”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(70,63): warning C4302: “类型强制转换”: 从“PBYTE”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(70,43): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PIMAGE_NT_HEADERS”
+C:\PEtool\loadPE\PETools.cpp(75,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(75,79): warning C4311: “类型强制转换”: 从“const PIMAGE_NT_HEADERS”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(75,79): warning C4302: “类型强制转换”: 从“const PIMAGE_NT_HEADERS”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(78,2): warning C4002: 类函数宏的调用“assert”参数过多
+C:\PEtool\loadPE\PETools.cpp(84,30): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(86,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(99,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(135,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(141,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(141,79): warning C4311: “类型强制转换”: 从“const PIMAGE_NT_HEADERS”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(141,79): warning C4302: “类型强制转换”: 从“const PIMAGE_NT_HEADERS”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(144,48): warning C4311: “类型强制转换”: 从“const PIMAGE_OPTIONAL_HEADER”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(144,48): warning C4302: “类型强制转换”: 从“const PIMAGE_OPTIONAL_HEADER”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(144,71): warning C4311: “类型强制转换”: 从“IMAGE_OPTIONAL_HEADER64 *”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(144,71): warning C4302: “类型强制转换”: 从“IMAGE_OPTIONAL_HEADER64 *”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(159,30): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(172,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(177,26): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(177,63): warning C4311: “类型强制转换”: 从“PBYTE”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(177,63): warning C4302: “类型强制转换”: 从“PBYTE”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(177,43): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PIMAGE_NT_HEADERS”
+C:\PEtool\loadPE\PETools.cpp(182,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(182,79): warning C4311: “类型强制转换”: 从“const PIMAGE_NT_HEADERS”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(182,79): warning C4302: “类型强制转换”: 从“const PIMAGE_NT_HEADERS”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(185,2): warning C4002: 类函数宏的调用“assert”参数过多
+C:\PEtool\loadPE\PETools.cpp(191,30): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(193,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(206,31): warning C4114: 多次使用同一类型限定符
+C:\PEtool\loadPE\PETools.cpp(308,9): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(308,9): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(308,23): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(308,23): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(450,75): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(450,75): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(450,50): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PIMAGE_BASE_RELOCATION”
+C:\PEtool\loadPE\PETools.cpp(479,40): warning C4311: “类型强制转换”: 从“PIMAGE_BASE_RELOCATION”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(479,40): warning C4302: “类型强制转换”: 从“PIMAGE_BASE_RELOCATION”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(479,15): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PIMAGE_BASE_RELOCATION”
+C:\PEtool\loadPE\PETools.cpp(511,67): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(511,67): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(511,41): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PIMAGE_EXPORT_DIRECTORY”
+C:\PEtool\loadPE\PETools.cpp(514,35): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(514,35): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(514,21): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“const char *”
+C:\PEtool\loadPE\PETools.cpp(523,31): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(523,31): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(523,22): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PDWORD”
+C:\PEtool\loadPE\PETools.cpp(530,32): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(530,32): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(530,24): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PWORD”
+C:\PEtool\loadPE\PETools.cpp(540,40): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(540,40): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(540,26): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“const char *”
+C:\PEtool\loadPE\PETools.cpp(546,31): warning C4311: “类型强制转换”: 从“PVOID”到“DWORD”的指针截断
+C:\PEtool\loadPE\PETools.cpp(546,31): warning C4302: “类型强制转换”: 从“PVOID”到“DWORD”截断
+C:\PEtool\loadPE\PETools.cpp(546,22): warning C4312: “类型强制转换”: 从“unsigned long”转换到更大的“PDWORD”

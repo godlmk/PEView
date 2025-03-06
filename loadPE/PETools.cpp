@@ -22,7 +22,7 @@ PIMAGE_DOS_HEADER GetDosHeader(LPVOID pImageBuffer)
 }
 PIMAGE_NT_HEADERS GetNTHeader(LPVOID pImageBuffer, PIMAGE_DOS_HEADER dosHeader)
 {
-	const PIMAGE_NT_HEADERS ntHeader = (PIMAGE_NT_HEADERS)((DWORD)pImageBuffer + dosHeader->e_lfanew);
+	PIMAGE_NT_HEADERS ntHeader = (PIMAGE_NT_HEADERS)((PBYTE)pImageBuffer + dosHeader->e_lfanew);
 	if (ntHeader->Signature != IMAGE_NT_SIGNATURE) {
 		std::println("Invalid NT signature");
 		return NULL;
@@ -67,15 +67,14 @@ bool ImageMemory2File(PBYTE pMemBuffer, const wchar_t* destPath) {
 		std::println("has not dos format");
 		return false;
 	}
-	const PIMAGE_NT_HEADERS const ntHeader = (PIMAGE_NT_HEADERS)((DWORD)pMemBuffer + dosHeader->e_lfanew);
+	const PIMAGE_NT_HEADERS const ntHeader = (PIMAGE_NT_HEADERS)((PBYTE)pMemBuffer + dosHeader->e_lfanew);
 	if (ntHeader->Signature != IMAGE_NT_SIGNATURE) {
 		std::println("Invalid NT signature");
 		return false;
 	}
-	const PIMAGE_OPTIONAL_HEADER const optionalHeader = (PIMAGE_OPTIONAL_HEADER)((DWORD)ntHeader
+	PIMAGE_OPTIONAL_HEADER32 const optionalHeader = (PIMAGE_OPTIONAL_HEADER32)((PBYTE)ntHeader
 		+ sizeof(ntHeader->Signature)
 		+ sizeof(ntHeader->FileHeader));// ntHeader->OptionalHeader;
-	assert(optionalHeader == &ntHeader->OptionalHeader, "optionalHeader != ntHeader->OptionalHeader");
 	DWORD fileSize = 0;
 	// 加上所有header和节表的大小
 	fileSize += optionalHeader->SizeOfHeaders;
@@ -138,11 +137,9 @@ PBYTE ReadMemoryImage(LPCTSTR filename) {
 		std::println("Invalid NT signature\n");
 		return NULL;
 	}
-	const PIMAGE_OPTIONAL_HEADER const optionalHeader = (PIMAGE_OPTIONAL_HEADER)((DWORD)ntHeader
+	PIMAGE_OPTIONAL_HEADER32 const optionalHeader = (PIMAGE_OPTIONAL_HEADER32)((PBYTE)ntHeader
 		+ sizeof(ntHeader->Signature)
 		+ sizeof(ntHeader->FileHeader));// ntHeader->OptionalHeader;
-	std::println("offset is {:X}, use & is {:X}", (DWORD)optionalHeader, (DWORD)&ntHeader->OptionalHeader);
-	assert(optionalHeader == &ntHeader->OptionalHeader);
 	const DWORD ImageSize = optionalHeader->SizeOfImage;
 	PBYTE const ImageBuffer = (PBYTE)malloc(ImageSize);
 	if (!ImageBuffer) {
@@ -153,15 +150,15 @@ PBYTE ReadMemoryImage(LPCTSTR filename) {
 	}
 	memset(ImageBuffer, 0, ImageSize);
 	// 拷贝所有的头和节表
-	const DWORD sizeOfHeaderAndSection = optionalHeader->SizeOfHeaders;
+	DWORD sizeOfHeaderAndSection = optionalHeader->SizeOfHeaders;
 	memcpy(ImageBuffer, buffer, sizeOfHeaderAndSection);
 	// 拷贝每一节的数据到应该在的位置
 	const PIMAGE_SECTION_HEADER const firstSection = IMAGE_FIRST_SECTION(ntHeader);
 	const int sectionCount = ntHeader->FileHeader.NumberOfSections;
 	for (int i = 0; i < sectionCount; ++i) {
 		PIMAGE_SECTION_HEADER curSection = firstSection + i;
-		const DWORD offsetInMemoty = curSection->VirtualAddress;
-		const DWORD offsetInFile = curSection->PointerToRawData;
+		DWORD offsetInMemoty = curSection->VirtualAddress;
+		DWORD offsetInFile = curSection->PointerToRawData;
 		const DWORD sectionSizeInFile = curSection->SizeOfRawData;
 		memcpy(ImageBuffer + offsetInMemoty, buffer + offsetInFile, sectionSizeInFile);
 	}
@@ -174,15 +171,14 @@ bool ImageMemory2File(PBYTE pMemBuffer, const char* destPath) {
 		std::println("has not dos format");
 		return false;
 	}
-	const PIMAGE_NT_HEADERS const ntHeader = (PIMAGE_NT_HEADERS)((DWORD)pMemBuffer + dosHeader->e_lfanew);
+	const PIMAGE_NT_HEADERS const ntHeader = (PIMAGE_NT_HEADERS)((PBYTE)pMemBuffer + dosHeader->e_lfanew);
 	if (ntHeader->Signature != IMAGE_NT_SIGNATURE) {
 		std::println("Invalid NT signature");
 		return false;
 	}
-	const PIMAGE_OPTIONAL_HEADER const optionalHeader = (PIMAGE_OPTIONAL_HEADER)((DWORD)ntHeader
+	const PIMAGE_OPTIONAL_HEADER32 const optionalHeader = (PIMAGE_OPTIONAL_HEADER32)((PBYTE)ntHeader
 		+ sizeof(ntHeader->Signature)
 		+ sizeof(ntHeader->FileHeader));// ntHeader->OptionalHeader;
-	assert(optionalHeader == &ntHeader->OptionalHeader, "optionalHeader != ntHeader->OptionalHeader");
 	DWORD fileSize = 0;
 	// 加上所有header和节表的大小
 	fileSize += optionalHeader->SizeOfHeaders;
@@ -305,7 +301,7 @@ bool write_file(IN void* buffer, IN const char* filename, IN const DWORD size)
 
 DWORD Offset(PVOID buffer, PVOID addr)
 {
-	return (DWORD)(addr)-(DWORD)buffer;
+	return (PBYTE)(addr)-(PBYTE)buffer;
 }
 
 void* GetBufferAddr(PVOID buffer, DWORD rva)
@@ -326,7 +322,7 @@ bool AddNewSection(IN  LPCTSTR infilename, OUT PVOID* newFileBuffer, OUT PDWORD 
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
 	PIMAGE_FILE_HEADER file_header = &nt_headers->FileHeader;
-	PIMAGE_OPTIONAL_HEADER op_header = &nt_headers->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 op_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
 
 	// 2. 是否能够放下一张新的节表
 	const int freebytes = op_header->SizeOfHeaders - (dos_header->e_lfanew +
@@ -418,7 +414,7 @@ bool BigerSection(IN LPCTSTR infilename, IN const char* outfilename)
 	PIMAGE_DOS_HEADER dosHeader = GetDosHeader(newMemoryImage);
 	ntHeaders = GetNTHeader(newMemoryImage, dosHeader);
 	PIMAGE_FILE_HEADER fileHeader = &ntHeaders->FileHeader;
-	PIMAGE_OPTIONAL_HEADER opHeader = &ntHeaders->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 opHeader = (PIMAGE_OPTIONAL_HEADER32)&ntHeaders->OptionalHeader;
 
 	int const sectionCount = fileHeader->NumberOfSections;
 	PIMAGE_SECTION_HEADER lastSection = IMAGE_FIRST_SECTION(ntHeaders) + (sectionCount - 1);
@@ -437,7 +433,7 @@ std::string RelocatedTable(PVOID pFileBuffer)
 	std::string output;
 	PIMAGE_DOS_HEADER dosHeader = GetDosHeader(pFileBuffer);
 	PIMAGE_NT_HEADERS ntHeaders = GetNTHeader(pFileBuffer, dosHeader);
-	PIMAGE_OPTIONAL_HEADER opHeader = &ntHeaders->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 opHeader = (PIMAGE_OPTIONAL_HEADER32)&ntHeaders->OptionalHeader;
 	// 重定向表的rva
 	DWORD relocate_table_rva = opHeader->DataDirectory[5].VirtualAddress;
 	if (relocate_table_rva == 0)
@@ -447,7 +443,7 @@ std::string RelocatedTable(PVOID pFileBuffer)
 	// 重定向表的foa
 	DWORD relocate_table_foa = RVA2FOA(pFileBuffer, relocate_table_rva);
 	// 重定向表的第一个指针
-	PIMAGE_BASE_RELOCATION first_relocation_table = (PIMAGE_BASE_RELOCATION)((DWORD)pFileBuffer + relocate_table_foa),
+	PIMAGE_BASE_RELOCATION first_relocation_table = (PIMAGE_BASE_RELOCATION)((PBYTE)pFileBuffer + relocate_table_foa),
 		cur_table = first_relocation_table;
 
 
@@ -476,7 +472,7 @@ std::string RelocatedTable(PVOID pFileBuffer)
 				output += std::format("第{}项，类型是{}, rva: N/A\n", j + 1, type);
 			}
 		}
-		cur_table = (PIMAGE_BASE_RELOCATION)((DWORD)cur_table + size);
+		cur_table = (PIMAGE_BASE_RELOCATION)((PBYTE)cur_table + size);
 	}
 	free(pFileBuffer);
 	return output;
@@ -496,7 +492,7 @@ std::string ExportTable(PVOID fileImage)
 		return output;;
 	}
 	PIMAGE_NT_HEADERS ntHeaders = GetNTHeader(fileImage, dosHeader);
-	PIMAGE_OPTIONAL_HEADER opHeader = &ntHeaders->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 opHeader = (PIMAGE_OPTIONAL_HEADER32)&ntHeaders->OptionalHeader;
 	// 导出表是第一张表
 	IMAGE_DATA_DIRECTORY exportDataDict = opHeader->DataDirectory[0];
 	// 导出表的RVA
@@ -508,10 +504,10 @@ std::string ExportTable(PVOID fileImage)
 	// 导出表的FOA
 	DWORD exportTable_foa = RVA2FOA(fileImage, exportTable_rva);
 	// 导出表的指针
-	PIMAGE_EXPORT_DIRECTORY pExporttable = (PIMAGE_EXPORT_DIRECTORY)((DWORD)fileImage + exportTable_foa);
+	PIMAGE_EXPORT_DIRECTORY pExporttable = (PIMAGE_EXPORT_DIRECTORY)((PBYTE)fileImage + exportTable_foa);
 	// 打印一些信息
 	DWORD name_foa = RVA2FOA(fileImage, pExporttable->Name);
-	const char* name = (const char*)((DWORD)fileImage + name_foa);
+	const char* name = (const char*)((PBYTE)fileImage + name_foa);
 	output += std::format("Name:{}\nBase:{}\nNumberOfFunctions:{}\nNumberOfNames:{}\n------------\n",
 		name, pExporttable->Base, pExporttable->NumberOfFunctions, pExporttable->NumberOfNames);
 
@@ -520,14 +516,14 @@ std::string ExportTable(PVOID fileImage)
 	// 导出表的函数名字表的FOA
 	DWORD nameTable_foa = RVA2FOA(fileImage, nameTable_rva);
 	// 函数名字表的指针
-	PDWORD pNameTable = (PDWORD)((DWORD)fileImage + nameTable_foa);
+	PDWORD pNameTable = (PDWORD)((PBYTE)fileImage + nameTable_foa);
 
 	// ordinal表的rva
 	DWORD ordinal_table_rva = pExporttable->AddressOfNameOrdinals;
 	// ordinal表的foa
 	DWORD ordinal_table_foa = RVA2FOA(fileImage, ordinal_table_rva);
 	// ordinal表
-	PWORD ordinal_table = (PWORD)((DWORD)fileImage + ordinal_table_foa);
+	PWORD ordinal_table = (PWORD)((PBYTE)fileImage + ordinal_table_foa);
 	// 打印ordinals表和names表
 	output += std::format("functions' name and ordinals\n");
 	for (DWORD i = 0; i < pExporttable->NumberOfNames; ++i)
@@ -537,13 +533,13 @@ std::string ExportTable(PVOID fileImage)
 		// 函数名字的foa
 		DWORD funcName_foa = RVA2FOA(fileImage, funcName_rva);
 		//打印函数名
-		const char* funcName = (const char*)((DWORD)fileImage + funcName_foa);
+		const char* funcName = (const char*)((PBYTE)fileImage + funcName_foa);
 		output += std::format("ordinal为{}的函数名为{}, foa is {:X}\n",
 			(ordinal_table[i]), funcName, funcName_foa);
 	}
 	DWORD func_table_rva = pExporttable->AddressOfFunctions;
 	DWORD func_table_foa = RVA2FOA(fileImage, func_table_rva);
-	PDWORD func_table = (PDWORD)((DWORD)fileImage + func_table_foa);
+	PDWORD func_table = (PDWORD)((PBYTE)fileImage + func_table_foa);
 	output += std::format("functions' address \n");
 	for (DWORD i = 0; i < pExporttable->NumberOfFunctions; ++i)
 	{
@@ -563,7 +559,7 @@ std::string ImportTable(PVOID file_buffer)
 	std::string output;
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
-	PIMAGE_OPTIONAL_HEADER op_headers = &nt_headers->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 op_headers = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
 
 	DWORD import_table_rva = op_headers->DataDirectory[1].VirtualAddress;
 	DWORD import_table_foa = RVA2FOA(file_buffer, import_table_rva);
@@ -631,7 +627,7 @@ std::string BoundImportTable(PVOID file_buffer)
 	std::string output;
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
-	PIMAGE_OPTIONAL_HEADER op_header = &nt_headers->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 op_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
 	if (op_header->DataDirectory[11].VirtualAddress == 0)
 	{
 		output += std::format("该PE文件没有绑定导入表\n");
@@ -723,7 +719,7 @@ std::string ResourceTable(PVOID file_buffer)
 	*/
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
-	PIMAGE_OPTIONAL_HEADER op_header = &nt_headers->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 op_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
 	// 第一层
 	PIMAGE_RESOURCE_DIRECTORY res_directory = (PIMAGE_RESOURCE_DIRECTORY)GetBufferAddr(file_buffer,
 		op_header->DataDirectory[2].VirtualAddress);

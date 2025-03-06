@@ -476,7 +476,7 @@ void InitPEView(HWND hDlg)
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
 	PIMAGE_FILE_HEADER file_header = &nt_headers->FileHeader;
-	PIMAGE_OPTIONAL_HEADER op_header = &nt_headers->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 op_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
 
 	// 入口点
 	DWORD eop = op_header->AddressOfEntryPoint;
@@ -617,7 +617,12 @@ void PopulateSectionView(HWND hDlg)
 	}
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
-	PIMAGE_OPTIONAL_HEADER opt_header = &nt_headers->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32 opt_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
+	if (opt_header->Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+	{
+		MessageBox(hDlg, TEXT("不支持非32位的架构"), NULL, MB_OK);
+		return;
+	}
 
 	PIMAGE_SECTION_HEADER first_section_header = IMAGE_FIRST_SECTION(nt_headers);
 	DWORD sectionCount = nt_headers->FileHeader.NumberOfSections;
@@ -672,12 +677,12 @@ void InitDirectoryView(HWND hDlg)
 	// dos头
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
-	PIMAGE_OPTIONAL_HEADER op_header = &nt_headers->OptionalHeader;
+	PIMAGE_OPTIONAL_HEADER32	optional_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
 	TCHAR szBuffer[0x20];
 	size_t len{ 0x20 };
 	for (int i = 0; i < 16; ++i)
 	{
-		IMAGE_DATA_DIRECTORY cur = op_header->DataDirectory[i];
+		IMAGE_DATA_DIRECTORY cur = optional_header->DataDirectory[i];
 		_stprintf_s(szBuffer, len, TEXT("0x%08X"), cur.VirtualAddress);
 		SetDlgItemText(hDlg, directoryType[i], szBuffer);
 		_stprintf_s(szBuffer, len, TEXT("0x%08X"), cur.Size);
