@@ -323,6 +323,7 @@ bool AddNewSection(IN  LPCTSTR infilename, OUT PVOID* newFileBuffer, OUT PDWORD 
 	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
 	PIMAGE_FILE_HEADER file_header = &nt_headers->FileHeader;
 	PIMAGE_OPTIONAL_HEADER32 op_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
+	op_header->DllCharacteristics &= ~IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE;
 
 	// 2. 是否能够放下一张新的节表
 	const int freebytes = op_header->SizeOfHeaders - (dos_header->e_lfanew +

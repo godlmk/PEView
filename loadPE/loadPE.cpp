@@ -474,10 +474,14 @@ void InitPEView(HWND hDlg)
 	DWORD size = ReadFileBuffer(filePath, &file_buffer);
 	// doc头
 	PIMAGE_DOS_HEADER dos_header = GetDosHeader(file_buffer);
-	PIMAGE_NT_HEADERS nt_headers = GetNTHeader(file_buffer, dos_header);
+	PIMAGE_NT_HEADERS32 nt_headers = (PIMAGE_NT_HEADERS32)GetNTHeader(file_buffer, dos_header);
 	PIMAGE_FILE_HEADER file_header = &nt_headers->FileHeader;
 	PIMAGE_OPTIONAL_HEADER32 op_header = (PIMAGE_OPTIONAL_HEADER32)&nt_headers->OptionalHeader;
-
+	if (op_header->Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC)
+	{
+		MessageBox(hDlg, TEXT("不支持64位架构PE"), NULL, MB_OK);
+		return;
+	}
 	// 入口点
 	DWORD eop = op_header->AddressOfEntryPoint;
 	DbgPrintfA("rva: %X, foa: %X", eop, RVA2FOA(file_buffer, eop));
@@ -829,7 +833,7 @@ INT_PTR CALLBACK DialogProcRelocation(HWND hwndDlg, UINT Msg, WPARAM wParam, LPA
 	case WM_INITDIALOG:
 	{
 		SetDlgItemText(hwndDlg, IDC_EDIT, TEXT(""));
-		void* file_buffer;
+		PVOID file_buffer;
 		DWORD size = ReadFileBuffer(filePath, &file_buffer);
 		std::string content = RelocatedTable(file_buffer);
 		int size_needed = MultiByteToWideChar(CP_ACP, 0, content.c_str(), -1, NULL, 0);
