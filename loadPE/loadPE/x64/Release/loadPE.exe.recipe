@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>C:\loadPE\x64\Release\loadPE.exe</FullPath>
+      <FullPath>C:\PEtool\loadPE\x64\Release\loadPE.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />
