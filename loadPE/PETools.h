@@ -7,15 +7,6 @@
 #include <string>
 #include <memory>
 
-#pragma pack(push, 1)
-struct IMAGE_OPTIONAL_HEADER_UNION {
-	union {
-		IMAGE_OPTIONAL_HEADER32 header32;
-		IMAGE_OPTIONAL_HEADER64 header64;
-	};
-};
-#pragma pack(pop)
-
 DWORD Align(int origin, int alignment);
 PIMAGE_DOS_HEADER GetDosHeader(LPVOID pImageBuffer);
 PIMAGE_NT_HEADERS GetNTHeader(LPVOID pImageBuffer, PIMAGE_DOS_HEADER dosHeader);
@@ -31,15 +22,6 @@ void* GetBufferAddr(PVOID buffer, DWORD rva);
 bool AddNewSection(IN  LPCTSTR infilename, OUT PVOID* newFileBuffer,
 	OUT PDWORD pOldSize, OUT PDWORD size_src);
 bool BigerSection(IN LPCTSTR infilename, IN const char* outfilename);
-template<typename T>
-T* GetTypedOptionalHeader(PIMAGE_NT_HEADERS pNtHeaders)
-{
-	if (!pNtHeaders || pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
-	{
-		return nullptr;
-	}
-	return static_cast<T*>(pNtHeaders->OptionalHeader);
-}
 
 std::string RelocatedTable(PVOID pFileBuffer);
 
