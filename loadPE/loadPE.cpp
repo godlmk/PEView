@@ -410,7 +410,7 @@ void ListProcessModules(DWORD dwPid, HWND hListModules)
 	MODULEENTRY32 me32;
 
 	// 模块快照
-	hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, dwPid);
+	hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, dwPid);
 	if (hModuleSnap == INVALID_HANDLE_VALUE)
 	{
 		MessageBox(NULL, TEXT("创建模块快照失败"), TEXT("Error"), MB_OK);
