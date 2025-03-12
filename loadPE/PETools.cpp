@@ -425,6 +425,132 @@ bool BigerSection(IN LPCTSTR infilename, IN const char* outfilename)
 	ImageMemory2File((PBYTE)newMemoryImage, outfilename);
 	return true;
 }
+BOOL RebaseRelocation(PVOID pImageBuffer, DWORD dwNewImageBase) {
+	PIMAGE_DOS_HEADER pDosHeader = GetDosHeader(pImageBuffer);
+	PIMAGE_NT_HEADERS pNtHeaders = GetNTHeader(pImageBuffer, pDosHeader);
+	PIMAGE_OPTIONAL_HEADER32 pOptionalHeader = (PIMAGE_OPTIONAL_HEADER32)&pNtHeaders->OptionalHeader;
+
+	// 获取重定位表
+	DWORD relocDirRVA = pOptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+	if (relocDirRVA == 0) {
+		pOptionalHeader->ImageBase = dwNewImageBase;
+		return FALSE;
+	}
+
+	PIMAGE_BASE_RELOCATION pRelocationTable = (PIMAGE_BASE_RELOCATION)((PBYTE)pImageBuffer + relocDirRVA);
+	LONG_PTR lImageBaseDelta = (LONG_PTR)dwNewImageBase - (LONG_PTR)pOptionalHeader->ImageBase;
+
+	// 遍历重定位块
+	while (pRelocationTable->VirtualAddress && pRelocationTable->SizeOfBlock) {
+		if (pRelocationTable->SizeOfBlock < 8) break;
+
+		DWORD entryCount = (pRelocationTable->SizeOfBlock - 8) / 2;
+		PWORD pEntries = (PWORD)((PBYTE)pRelocationTable + 8);
+
+		for (DWORD i = 0; i < entryCount; ++i) {
+			WORD entry = pEntries[i];
+			BYTE type = entry >> 12;
+			WORD offset = entry & 0x0FFF;
+
+			if (type != IMAGE_REL_BASED_HIGHLOW) continue;
+
+			// 计算重定位地址
+			DWORD_PTR relocRVA = pRelocationTable->VirtualAddress + offset;
+			PDWORD pRelocAddr = (PDWORD)((PBYTE)pImageBuffer + relocRVA);
+
+			// 修正地址
+			*pRelocAddr += (DWORD)lImageBaseDelta; // 注意32/64位差异
+		}
+
+		// 移动到下一个块
+		pRelocationTable = (PIMAGE_BASE_RELOCATION)((PBYTE)pRelocationTable + pRelocationTable->SizeOfBlock);
+	}
+
+	// 更新基址
+	pOptionalHeader->ImageBase = dwNewImageBase;
+	return true;
+}
+BOOL RestoreIAT(LPVOID pImageBuffer) {
+	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pImageBuffer;
+	if (pDosHeader->e_magic != IMAGE_DOS_SIGNATURE) return FALSE;
+
+	PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((PBYTE)pImageBuffer + pDosHeader->e_lfanew);
+	if (pNtHeaders->Signature != IMAGE_NT_SIGNATURE) return FALSE;
+
+	// 判断PE架构（32/64位）
+	BOOL is64Bit = FALSE;
+	IMAGE_OPTIONAL_HEADER* pOptionalHeader = &pNtHeaders->OptionalHeader;
+	if (pOptionalHeader->Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
+		is64Bit = TRUE;
+	}
+
+	// 获取导入表目录
+	DWORD importRVA = is64Bit
+		? ((PIMAGE_OPTIONAL_HEADER64)pOptionalHeader)->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress
+		: ((PIMAGE_OPTIONAL_HEADER32)pOptionalHeader)->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+	DWORD importSize = is64Bit
+		? ((PIMAGE_OPTIONAL_HEADER64)pOptionalHeader)->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size
+		: ((PIMAGE_OPTIONAL_HEADER32)pOptionalHeader)->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size;
+
+	if (importRVA == 0 || importSize == 0) return FALSE; // 无导入表
+
+	PIMAGE_IMPORT_DESCRIPTOR pImport = (PIMAGE_IMPORT_DESCRIPTOR)((PBYTE)pImageBuffer + importRVA);
+
+	// 遍历每个DLL
+	while (pImport->Name != 0) {
+		// 加载DLL
+		LPCSTR dllName = (LPCSTR)((PBYTE)pImageBuffer + pImport->Name);
+		HMODULE hModule = LoadLibraryA(dllName);
+		if (!hModule) return FALSE;
+
+		// 获取INT和IAT的指针
+		UINT* pThunk = (UINT*)((PBYTE)pImageBuffer + pImport->OriginalFirstThunk);
+		UINT* pIAT = (UINT*)((PBYTE)pImageBuffer + pImport->FirstThunk);
+
+		// 遍历函数
+		DWORD dwOldProtect;
+		SIZE_T regionSize = 0;
+		for (; *pThunk; ++pThunk, ++pIAT) {
+			// 修改内存保护属性
+			if (!VirtualProtect(pIAT, sizeof(UINT), PAGE_READWRITE, &dwOldProtect)) {
+				FreeLibrary(hModule);
+				return FALSE;
+			}
+
+			// 处理序号/名称导入
+			if (is64Bit ? (*pThunk & IMAGE_ORDINAL_FLAG64) : (*pThunk & IMAGE_ORDINAL_FLAG32)) {
+				// 按序号导入
+				UINT ordinal = is64Bit
+					? (*pThunk & 0xFFFF)
+					: (*pThunk & 0x7FFFFFFF);
+				FARPROC pFunc = GetProcAddress(hModule, (LPCSTR)ordinal);
+				if (!pFunc) {
+					VirtualProtect(pIAT, sizeof(UINT), dwOldProtect, &dwOldProtect);
+					FreeLibrary(hModule);
+					return FALSE;
+				}
+				*pIAT = (ULONGLONG)pFunc;
+			}
+			else {
+				// 按名称导入
+				PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)((PBYTE)pImageBuffer + *pThunk);
+				FARPROC pFunc = GetProcAddress(hModule, pImportName->Name);
+				if (!pFunc) {
+					VirtualProtect(pIAT, sizeof(UINT), dwOldProtect, &dwOldProtect);
+					FreeLibrary(hModule);
+					return FALSE;
+				}
+				*pIAT = (UINT)pFunc;
+			}
+
+			// 恢复保护属性
+			VirtualProtect(pIAT, sizeof(UINT), dwOldProtect, &dwOldProtect);
+		}
+
+		++pImport;
+	}
+	return TRUE;
+}
 std::string RelocatedTable(PVOID pFileBuffer)
 {
 	/*
@@ -575,7 +701,7 @@ std::string ImportTable(PVOID file_buffer)
 		const char* dll_name = (PCSTR)((PBYTE)file_buffer + dll_name_foa);
 		output += std::format("------ now dll name is {} -------\n", dll_name);
 		// 没有绑定时的情况
-		//遍历IAT
+		//遍历INT
 		PDWORD cur_INT = (PDWORD)GetBufferAddr(file_buffer, cur_import_table->OriginalFirstThunk);
 		constexpr DWORD first_1 = 1 << 31, last_31 = first_1 - 1;
 		output += std::format("----INT 表如下----\n");

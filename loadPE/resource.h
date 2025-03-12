@@ -19,6 +19,7 @@
 #define IDD_DIALOG_SECTION              106
 #define IDD_DIALOG_DIRECTORY            108
 #define IDD_DIALOG_DETAILS              110
+#define IDD_DIALOG_INJECT               112
 #define IDC_BUTTON_ABOUT                1004
 #define IDC_BUTTON_QUIT                 1005
 #define IDC_BUTTON_OPEN                 1006
@@ -52,12 +53,19 @@
 #define IDC_EDIT_SECURITY               1033
 #define IDC_EDIT1                       1033
 #define IDC_EDIT                        1033
-#define IDC_BUTTON1                     1034
+#define IDC_EDIT_PID                    1033
 #define IDC_BUTTON_ADDSHELL             1034
+#define IDC_EDIT_PATH                   1034
+#define IDC_BUTTON_INJECT               1035
 #define IDC_EDIT_RELOCATION             1036
+#define IDC_BUTTON_OPENFILE             1036
 #define IDC_EDIT_DEBUG                  1037
+#define IDC_BUTTON_REMOTE_INJECT        1037
 #define IDC_EDIT_ARCH                   1038
+#define IDC_BUTTON_WRITE_MEMORY         1038
 #define IDC_EDIT_RVAOFGP                1039
+#define IDC_BUTTON_WRITE_PROCESS        1039
+#define IDC_BUTTON_QUITR                1040
 #define IDC_EDIT_TLS                    1046
 #define IDC_EDIT_LOADCONFIG             1047
 #define IDC_EDIT_BOUNDIMPORT            1048
@@ -91,9 +99,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        112
+#define _APS_NEXT_RESOURCE_VALUE        114
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1035
+#define _APS_NEXT_CONTROL_VALUE         1041
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

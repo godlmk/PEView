@@ -22,6 +22,10 @@ void* GetBufferAddr(PVOID buffer, DWORD rva);
 bool AddNewSection(IN  LPCTSTR infilename, OUT PVOID* newFileBuffer,
 	OUT PDWORD pOldSize, OUT PDWORD size_src);
 bool BigerSection(IN LPCTSTR infilename, IN const char* outfilename);
+// 修复重定位表
+BOOL RebaseRelocation(PVOID pImageBuffer, DWORD dwNewImageBase);
+// 修复IAT表
+BOOL RestoreIAT(LPVOID pImageBuffer);
 
 std::string RelocatedTable(PVOID pFileBuffer);
 

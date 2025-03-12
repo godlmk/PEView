@@ -12,6 +12,7 @@
 #include <string>
 #include <format>
 #include <print>
+#include <psapi.h> // 需要链接 Psapi.lib
 #include "PETools.h"
 // 全局变量:
 HINSTANCE hInst;                                // 当前实例
@@ -118,7 +119,11 @@ INT_PTR CALLBACK DialogProcMain(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM lP
 		case   IDC_BUTTON_QUIT:
 		{
 			EndDialog(hwndDlg, 0);
-
+			return TRUE;
+		}
+		case IDC_BUTTON_INJECT:
+		{
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG_INJECT), hwndDlg, DialogProcInject);
 			return TRUE;
 		}
 		case IDC_BUTTON_ADDSHELL:
@@ -133,6 +138,7 @@ INT_PTR CALLBACK DialogProcMain(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM lP
 				return true;
 			}
 			AddShell(srcPath, shellPath);
+			return TRUE;
 		}
 		}
 		break;
@@ -292,7 +298,64 @@ void InitProcessListView(HWND hDlg)
 	//SendMessage(hListProcess, LVM_INSERTCOLUMN, 3, (DWORD)&lv);
 	EnumProcess(hListProcess);
 }
+BOOL IsProcess64Bit(DWORD pid) {
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+	BOOL isWow64 = FALSE;
+	if (hProcess) {
+		IsWow64Process(hProcess, &isWow64);
+		CloseHandle(hProcess);
+		// 若进程是 64 位，isWow64 为 FALSE（因为 64 位进程不会运行在 WOW64 下）
+		return !isWow64;
+	}
+	return FALSE;
+}
 
+// 定义未公开的 NtQueryInformationProcess 函数
+using PNtQueryInformationProcess = LONG(*)(
+	HANDLE ProcessHandle,
+	DWORD ProcessInformationClass,
+	PVOID ProcessInformation,
+	ULONG ProcessInformationLength,
+	PULONG ReturnLength
+	);
+
+// 获取进程模块信息（支持跨架构）
+BOOL GetProcessModules(DWORD pid, HWND hListModules) {
+	HANDLE hProcess = OpenProcess(
+		PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+		FALSE, pid
+	);
+	if (!hProcess) return FALSE;
+
+	HMODULE hMods[1024];
+	DWORD cbNeeded;
+	if (EnumProcessModulesEx(
+		hProcess,
+		hMods,
+		sizeof(hMods),
+		&cbNeeded,
+		LIST_MODULES_ALL
+	)) {
+		for (DWORD i = 0; i < (cbNeeded / sizeof(HMODULE)); i++) {
+			LV_ITEM lvItem;
+			TCHAR szModName[MAX_PATH];
+			GetModuleFileNameEx(hProcess, hMods[i], szModName, MAX_PATH);
+			lvItem.iItem = ListView_GetItemCount(hListModules);
+			lvItem.iSubItem = 0;
+			lvItem.pszText = szModName;
+			ListView_InsertItem(hListModules, &lvItem);
+
+			lvItem.mask = LVIF_TEXT;
+			lvItem.iSubItem = 1;
+			TCHAR szBaseAddr[0x20];
+			_stprintf_s(szBaseAddr, 0x20, TEXT("0x%016lX"), (DWORD_PTR)hMods[i]);
+			lvItem.pszText = szBaseAddr;
+			ListView_SetItem(hListModules, &lvItem);
+		}
+	}
+	CloseHandle(hProcess);
+	return TRUE;
+}
 void EnumProcess(HWND hListProcess)
 {
 	LV_ITEM lvitem;
@@ -313,17 +376,19 @@ void EnumProcess(HWND hListProcess)
 		CloseHandle(hProcessSnap);
 		return;
 	}
+	int n = 0;
 	do {
 		// 创建模块快照
-		hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pe32.th32ProcessID);
+		++n;
+		hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pe32.th32ProcessID);
 		if (hModuleSnap == INVALID_HANDLE_VALUE)
 		{
-			continue;
+			DbgPrintfA(" creatnap first failed :%d, error %d", n, GetLastError());
 		}
 		me32.dwSize = sizeof(MODULEENTRY32);
 		if (!Module32First(hModuleSnap, &me32)) {
+			DbgPrintfA(" Module first failed :%d", n);
 			CloseHandle(hModuleSnap);
-			continue;
 		}
 		// 进程名
 		lvitem.mask = LVIF_TEXT;
@@ -353,6 +418,7 @@ void EnumProcess(HWND hListProcess)
 		// 关闭模块快照
 		CloseHandle(hModuleSnap);
 	} while (Process32Next(hProcessSnap, &pe32));
+	DbgPrintfA("module number :%d", n);
 	CloseHandle(hProcessSnap);
 }
 
@@ -401,7 +467,8 @@ void EnumModules(HWND hListProcess, HWND hListModules)
 	// 清空原来的信息
 	ListView_DeleteAllItems(hListModules);
 	// 列出所有的模块
-	ListProcessModules(dwPid, hListModules);
+	//ListProcessModules(dwPid, hListModules);
+	GetProcessModules(dwPid, hListModules);
 }
 
 void ListProcessModules(DWORD dwPid, HWND hListModules)
@@ -447,14 +514,18 @@ BOOL OpenFileDialog(HWND hwnd, LPTSTR filePath, DWORD filePathSize)
 	OPENFILENAME ofn;
 	TCHAR szFile[MAX_PATH] = { 0 };
 	// 初始化ofn
+	const TCHAR szFilter[] =
+		TEXT("Executable Files (*.exe, *.dll, *.scr, *.drv, *.sys)\0")
+		TEXT("*.exe;*.dll;*.scr;*.drv;*.sys\0")
+		TEXT("All Files (*.*)\0*.*\0\0"); // 末尾两个空字符
 	ZeroMemory(&ofn, sizeof(ofn));
 	ofn.lStructSize = sizeof(ofn);
 	ofn.hwndOwner = hwnd;
 	ofn.lpstrFile = szFile;
-	ofn.nMaxFile = sizeof(szFile);
-	ofn.lpstrFilter = TEXT("*.exe;*.dll;*.scr;*.drv;*.sys\0*.exe;*.dll;*.src;*.drv;*.sys\0All Files (*.*)\0*.*\0");
+	ofn.nMaxFile = MAX_PATH;
+	ofn.lpstrFilter = szFilter;
 	ofn.nFilterIndex = 1;
-	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
 
 	if (GetOpenFileName(&ofn) == TRUE)
 	{
@@ -890,6 +961,256 @@ INT_PTR CALLBACK DialogProcBoundImport(HWND hwndDlg, UINT Msg, WPARAM wParam, LP
 	}
 	}
 	return FALSE;
+}
+
+INT_PTR CALLBACK DialogProcInject(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (Msg)
+	{
+	case WM_INITDIALOG:
+		return TRUE;
+	case WM_CLOSE:
+	{
+		EndDialog(hwndDlg, 0);
+		return TRUE;
+	}
+	case WM_COMMAND:
+	{
+		switch (LOWORD(wParam))
+		{
+		case IDC_BUTTON_QUIT:
+		{
+			EndDialog(hwndDlg, 0);
+			return TRUE;
+		}
+		case IDC_BUTTON_OPENFILE:
+		{
+			TCHAR dllPath[MAX_PATH];
+			OpenFileDialog(hwndDlg, dllPath, MAX_PATH);
+			SetDlgItemText(hwndDlg, IDC_EDIT_PATH, dllPath);
+			return TRUE;
+		}
+		case IDC_BUTTON_REMOTE_INJECT:
+		{
+			TCHAR dllPath[MAX_PATH];
+			GetDlgItemText(hwndDlg, IDC_EDIT_PATH, dllPath, MAX_PATH);
+			DWORD pid;
+			TCHAR tPid[0x20];
+			GetDlgItemText(hwndDlg, IDC_EDIT_PID, tPid, MAX_PATH);
+			pid = _ttoi(tPid);
+			if (!RemoteInject(pid, dllPath))
+			{
+				MessageBox(hwndDlg, TEXT("注入失败"), TEXT("错误"), MB_OK);
+			}
+			return TRUE;
+		}
+		case IDC_BUTTON_WRITE_MEMORY:
+			TCHAR dllPath[MAX_PATH];
+			GetDlgItemText(hwndDlg, IDC_EDIT_PATH, dllPath, MAX_PATH);
+			DWORD pid;
+			TCHAR tPid[0x20];
+			GetDlgItemText(hwndDlg, IDC_EDIT_PID, tPid, MAX_PATH);
+			if (!LoadProcessInject(dllPath))
+			{
+				MessageBox(hwndDlg, TEXT("注入失败"), TEXT("错误"), MB_OK);
+			}
+			return TRUE;
+		}
+
+
+	}
+	}
+	return FALSE;
+}
+
+BOOL RemoteInject(IN DWORD pid, IN LPCTSTR dllPath)
+{
+	/*
+	1. 获取pid
+	2.线程函数地址 LoadLibrary
+	3. 写入模块名称
+	4. 获取返回值
+	5.释放dll名字
+	6 关闭句柄
+	*/
+	size_t dllLen = (wcslen(dllPath) + 1) * sizeof(WCHAR);
+	HANDLE hFg = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+	HMODULE hMod = GetModuleHandle(L"kernel32.dll");
+	LPTHREAD_START_ROUTINE lpLoadAddress = (LPTHREAD_START_ROUTINE)GetProcAddress(hMod, "LoadLibraryW");
+	if (lpLoadAddress == NULL)
+	{
+		DbgPrintfA("GetAddress fail, %d", GetLastError());
+		return FALSE;
+	}
+	PVOID mBuffer = ::VirtualAllocEx(hFg, NULL, dllLen, MEM_COMMIT, PAGE_READWRITE);
+	int ret = ::WriteProcessMemory(hFg, mBuffer, dllPath, dllLen, NULL);
+	if (ret == 0)
+	{
+		DbgPrintfA("write fail, %d", GetLastError());
+		return FALSE;
+	}
+	HANDLE remote = ::CreateRemoteThread(hFg, NULL, 0, lpLoadAddress, mBuffer, 0, NULL);
+	if (remote == NULL)
+	{
+		DbgPrintfA("create fail, %d", GetLastError());
+		return FALSE;
+	}
+	WaitForSingleObject(remote, INFINITE);
+	DWORD returnval;
+	::GetExitCodeThread(remote, &returnval);
+	DbgPrintfA("exitcode : %d", returnval);
+	::VirtualFreeEx(hFg, mBuffer, dllLen, MEM_RELEASE);
+	::CloseHandle(remote);
+	return returnval != 0;
+}
+//BOOL LoadProcessInject(IN LPCTSTR exePath)
+//{
+//	// 1. 读取 EXE 文件到内存
+//	HANDLE hFile = CreateFileW(exePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+//	if (hFile == INVALID_HANDLE_VALUE) return FALSE;
+//
+//	DWORD fileSize = GetFileSize(hFile, NULL);
+//	BYTE* pFileData = new BYTE[fileSize];
+//	ReadFile(hFile, pFileData, fileSize, NULL, NULL);
+//	CloseHandle(hFile);
+//
+//	// 2. 解析 PE 头
+//	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pFileData;
+//	PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)(pFileData + pDosHeader->e_lfanew);
+//	DWORD imageBase = pNtHeaders->OptionalHeader.ImageBase;
+//	DWORD sizeOfImage = pNtHeaders->OptionalHeader.SizeOfImage;
+//
+//	// 3. 分配内存（优先使用 EXE 的原始基址）
+//	BYTE* pLocalImage = (BYTE*)VirtualAlloc((LPVOID)imageBase, sizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+//	if (!pLocalImage) {
+//		pLocalImage = (BYTE*)VirtualAlloc(NULL, sizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+//		if (!pLocalImage) {
+//			delete[] pFileData;
+//			return FALSE;
+//		}
+//	}
+//	// 授权
+//	DWORD dwOldProtect;
+//
+//	// 4. 拉伸 PE 到内存
+//	memcpy(pLocalImage, pFileData, pNtHeaders->OptionalHeader.SizeOfHeaders);
+//
+//	PIMAGE_SECTION_HEADER pSection = IMAGE_FIRST_SECTION(pNtHeaders);
+//	for (int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++) {
+//		memcpy(
+//			pLocalImage + pSection[i].VirtualAddress,
+//			pFileData + pSection[i].PointerToRawData,
+//			pSection[i].SizeOfRawData
+//		);
+//	}
+//
+//	// 5. 修复重定位表
+//	DWORD delta = (DWORD_PTR)pLocalImage - pNtHeaders->OptionalHeader.ImageBase;
+//	if (delta != 0) {
+//		PIMAGE_DATA_DIRECTORY pRelocDir = &pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+//		if (pRelocDir->Size > 0) {
+//			PIMAGE_BASE_RELOCATION pReloc = (PIMAGE_BASE_RELOCATION)(pLocalImage + pRelocDir->VirtualAddress);
+//			while (pReloc->VirtualAddress) {
+//				DWORD numEntries = (pReloc->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+//				WORD* pEntry = (WORD*)((BYTE*)pReloc + sizeof(IMAGE_BASE_RELOCATION));
+//				for (DWORD i = 0; i < numEntries; i++) {
+//					if ((pEntry[i] >> 12) == IMAGE_REL_BASED_HIGHLOW) {
+//						DWORD_PTR* pAddr = (DWORD_PTR*)(pLocalImage + pReloc->VirtualAddress + (pEntry[i] & 0xFFF));
+//						*pAddr += delta;
+//					}
+//				}
+//				pReloc = (PIMAGE_BASE_RELOCATION)((BYTE*)pReloc + pReloc->SizeOfBlock);
+//			}
+//		}
+//	}
+//
+//	// 6. 修复导入表（IAT）
+//	PIMAGE_DATA_DIRECTORY pImportDir = &pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+//	if (pImportDir->Size > 0) {
+//		PIMAGE_IMPORT_DESCRIPTOR pImportDesc = (PIMAGE_IMPORT_DESCRIPTOR)(pLocalImage + pImportDir->VirtualAddress);
+//		while (pImportDesc->Name) {
+//			const char* dllName = (const char*)(pLocalImage + pImportDesc->Name);
+//			HMODULE hModule = LoadLibraryA(dllName);
+//			if (!hModule) {
+//				VirtualFree(pLocalImage, 0, MEM_RELEASE);
+//				delete[] pFileData;
+//				return FALSE;
+//			}
+//
+//			// 填充函数地址
+//			PIMAGE_THUNK_DATA pThunk = (PIMAGE_THUNK_DATA)(pLocalImage + pImportDesc->FirstThunk);
+//			while (pThunk->u1.AddressOfData) {
+//				if (pThunk->u1.Ordinal & IMAGE_ORDINAL_FLAG) {
+//					// 按序号导入
+//					LPCSTR funcName = (LPCSTR)(pThunk->u1.Ordinal & 0xFFFF);
+//					pThunk->u1.Function = (DWORD_PTR)GetProcAddress(hModule, funcName);
+//				}
+//				else {
+//					// 按名称导入
+//					PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(pLocalImage + pThunk->u1.AddressOfData);
+//					pThunk->u1.Function = (DWORD_PTR)GetProcAddress(hModule, pImportName->Name);
+//				}
+//				pThunk++;
+//			}
+//			pImportDesc++;
+//		}
+//	}
+//
+//	// 7. 跳转到入口点执行
+//	typedef void(*EXE_ENTRY_POINT)();
+//	EXE_ENTRY_POINT entryPoint = (EXE_ENTRY_POINT)(pLocalImage + pNtHeaders->OptionalHeader.AddressOfEntryPoint);
+//
+//	__try {
+//		entryPoint(); // 调用 EXE 入口点
+//	}
+//	__except (EXCEPTION_EXECUTE_HANDLER) {
+//		VirtualFree(pLocalImage, 0, MEM_RELEASE);
+//		delete[] pFileData;
+//		return FALSE;
+//	}
+//
+//	// 8. 清理资源
+//	VirtualFree(pLocalImage, 0, MEM_RELEASE);
+//	delete[] pFileData;
+//	return TRUE;
+//}
+
+BOOL LoadProcessInject(IN LPCTSTR dllPath)
+{
+	/*
+	1. 加载程序，读取ImageBuffer
+	2. 修复其iat表
+	3. 申请空间，拷贝
+	4. 跳转到eop
+	*/
+	PVOID pImageBuffer = ReadMemoryImage(dllPath);
+	PIMAGE_NT_HEADERS32 pNtHeaders = (PIMAGE_NT_HEADERS32)GetNTHeader(pImageBuffer, GetDosHeader(pImageBuffer));
+	PIMAGE_OPTIONAL_HEADER32 pOptionalHeader = &pNtHeaders->OptionalHeader;
+	DWORD dwSizeOfImage = pOptionalHeader->SizeOfImage;
+	DWORD dwOEP = pOptionalHeader->AddressOfEntryPoint;
+	DWORD dwImageBase = pOptionalHeader->ImageBase;
+
+	PVOID pLocalImage = (PVOID)VirtualAlloc(NULL, dwSizeOfImage, MEM_COMMIT | MEM_RESERVE,
+		PAGE_EXECUTE_READWRITE);
+	if (!pLocalImage) {
+		DWORD errcode = GetLastError();
+		return FALSE;
+	}
+	RebaseRelocation(pImageBuffer, (DWORD)pLocalImage);
+	memcpy(pLocalImage, pImageBuffer, dwSizeOfImage);
+	if (!RestoreIAT(pLocalImage)) {
+		return FALSE;
+	}
+
+
+	DWORD entryPoint = (DWORD)pLocalImage + dwOEP;
+	__asm {
+		jmp entryPoint
+	}
+
+	VirtualFree(pLocalImage, 0, MEM_RELEASE);
+
+	return TRUE;
 }
 
 void __cdecl OutputDebugStringF(const char* format, ...)

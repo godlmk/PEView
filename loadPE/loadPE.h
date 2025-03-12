@@ -39,3 +39,10 @@ INT_PTR CALLBACK DialogProcImport(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM 
 INT_PTR CALLBACK DialogProcResource(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK DialogProcRelocation(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK DialogProcBoundImport(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+// 注入界面
+INT_PTR CALLBACK DialogProcInject(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM lParam);
+// 通过pid和dll路径注入
+BOOL RemoteInject(IN DWORD pid, IN LPCTSTR dllPath);
+// 通过在高地址运行然后在低地址运行目标来注入
+BOOL LoadProcessInject(IN LPCTSTR dllPath);
