@@ -434,7 +434,7 @@ BOOL RebaseRelocation(PVOID pImageBuffer, DWORD dwNewImageBase) {
 	DWORD relocDirRVA = pOptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
 	if (relocDirRVA == 0) {
 		pOptionalHeader->ImageBase = dwNewImageBase;
-		return FALSE;
+		return TRUE;
 	}
 
 	PIMAGE_BASE_RELOCATION pRelocationTable = (PIMAGE_BASE_RELOCATION)((PBYTE)pImageBuffer + relocDirRVA);

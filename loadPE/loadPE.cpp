@@ -1005,19 +1005,27 @@ INT_PTR CALLBACK DialogProcInject(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM 
 			return TRUE;
 		}
 		case IDC_BUTTON_WRITE_MEMORY:
+		{
 			TCHAR dllPath[MAX_PATH];
 			GetDlgItemText(hwndDlg, IDC_EDIT_PATH, dllPath, MAX_PATH);
 			DWORD pid;
-			TCHAR tPid[0x20];
-			GetDlgItemText(hwndDlg, IDC_EDIT_PID, tPid, MAX_PATH);
 			if (!LoadProcessInject(dllPath))
 			{
 				MessageBox(hwndDlg, TEXT("注入失败"), TEXT("错误"), MB_OK);
 			}
 			return TRUE;
 		}
-
-
+		case IDC_BUTTON_WRITE_PROCESS:
+		{
+			TCHAR tPid[0x20];
+			GetDlgItemText(hwndDlg, IDC_EDIT_PID, tPid, MAX_PATH);
+			if (!LoadMemoryInject(_ttoi(tPid)))
+			{
+				MessageBox(hwndDlg, TEXT("注入失败"), TEXT("错误"), MB_OK);
+			}
+			return TRUE;
+		}
+		}
 	}
 	}
 	return FALSE;
@@ -1211,6 +1219,110 @@ BOOL LoadProcessInject(IN LPCTSTR dllPath)
 	VirtualFree(pLocalImage, 0, MEM_RELEASE);
 
 	return TRUE;
+}
+BOOL InjectProc(PVOID pMemoryBuffer)
+{
+	// 纯手工修复IAT表
+	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)pMemoryBuffer;
+	PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((PBYTE)pMemoryBuffer + pDosHeader->e_lfanew);
+	PIMAGE_OPTIONAL_HEADER pOptionalHeader = &pNtHeaders->OptionalHeader;
+	PIMAGE_IMPORT_DESCRIPTOR pImport = (PIMAGE_IMPORT_DESCRIPTOR)((PBYTE)pMemoryBuffer +
+		pOptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+	// 遍历INT表来修复IAT表
+	while (pImport->Characteristics != 0)
+	{
+		LPCSTR dllName = (LPCSTR)((PBYTE)pMemoryBuffer + pImport->Name);
+		HMODULE hModule = LoadLibraryA(dllName);
+		if (hModule == NULL)
+		{
+			return FALSE;
+		}
+		PDWORD pINT = (PDWORD)((PBYTE)pMemoryBuffer + pImport->OriginalFirstThunk);
+		PDWORD pIAT = (PDWORD)((PBYTE)pMemoryBuffer + pImport->FirstThunk);
+		DWORD dwOldProtect;
+		DWORD dwFunOrdinal;
+		for (; *pINT; ++pINT, ++pIAT)
+		{
+			VirtualProtect(pIAT, sizeof(DWORD), PAGE_READWRITE, &dwOldProtect);
+			if (*pINT & IMAGE_ORDINAL_FLAG32)
+			{
+				// 按序号导入
+				dwFunOrdinal = IMAGE_ORDINAL32(*pINT);
+				*pIAT = (INT_PTR)GetProcAddress(hModule, MAKEINTRESOURCEA(dwFunOrdinal));
+			}
+			else
+			{
+				// 按名字导入
+				PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)((PBYTE)pMemoryBuffer + *pINT);
+				*pIAT = (INT_PTR)GetProcAddress(hModule, pImportName->Name);
+			}
+			VirtualProtect(pIAT, sizeof(DWORD), dwOldProtect, &dwOldProtect);
+		}
+		++pImport;
+	}
+	// 修复之后来个MessageBox
+	MessageBox(0, 0, 0, 0);
+	return TRUE;
+}
+
+BOOL LoadMemoryInject(IN const DWORD pid)
+{
+	/*
+	1. 获取自己的imagebase和memoryImage
+	2. 修复image中的重定位表
+	3. 获取目标进程句柄，申请空间写入image数据
+	4. 创建远程线程执行函数修复IAT表
+	*/
+	// 获取自己的memoryBuffer
+	PVOID pImageBase = (PVOID)GetModuleHandle(NULL);
+	PIMAGE_NT_HEADERS pNtHeaders = GetNTHeader(pImageBase, GetDosHeader(pImageBase));
+	PIMAGE_OPTIONAL_HEADER pOptionalHeader = &pNtHeaders->OptionalHeader;
+	DWORD dwSizeOfImage = pOptionalHeader->SizeOfImage;
+	// 拷贝到新的位置
+	PVOID pNewImageBuffer = malloc(dwSizeOfImage);
+	memset(pNewImageBuffer, 0, dwSizeOfImage);
+	memcpy(pNewImageBuffer, pImageBase, dwSizeOfImage);
+	HANDLE hAim = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+	if (hAim == NULL)
+	{
+		return FALSE;
+	}
+	// 申请目标进程的空间
+	PVOID pAimBase = VirtualAllocEx(hAim, NULL, dwSizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+	DWORD errCode;
+	if (pAimBase == NULL)
+	{
+		errCode = GetLastError();
+		return FALSE;
+	}
+	// 修复重定位表
+	BOOL bRet = RebaseRelocation(pNewImageBuffer, (DWORD)pAimBase);
+	if (!bRet)
+	{
+		return FALSE;
+	}
+	// 写入数据
+	bRet = ::WriteProcessMemory(hAim, pAimBase, pNewImageBuffer, dwSizeOfImage, NULL);
+	if (!bRet)
+	{
+		errCode = GetLastError();
+		return FALSE;
+	}
+	// 找到注入函数在目标的位置
+	DWORD dwProcAddr = ((DWORD)InjectProc - (DWORD)pImageBase + (DWORD)pAimBase);
+	// 创建线程执行指定函数
+	HANDLE remote = ::CreateRemoteThread(hAim, NULL, 0, (LPTHREAD_START_ROUTINE)dwProcAddr, pAimBase, 0, NULL);
+	if (remote == NULL)
+	{
+		DbgPrintfA("create fail, %d", GetLastError());
+		return FALSE;
+	}
+	WaitForSingleObject(remote, INFINITE);
+	DWORD returnval;
+	::GetExitCodeThread(remote, &returnval);
+	DbgPrintfA("exitcode : %d", returnval);
+	::CloseHandle(remote);
+	return returnval == TRUE;
 }
 
 void __cdecl OutputDebugStringF(const char* format, ...)

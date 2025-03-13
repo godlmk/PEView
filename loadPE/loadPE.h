@@ -46,3 +46,5 @@ INT_PTR CALLBACK DialogProcInject(HWND hwndDlg, UINT Msg, WPARAM wParam, LPARAM 
 BOOL RemoteInject(IN DWORD pid, IN LPCTSTR dllPath);
 // 通过在高地址运行然后在低地址运行目标来注入
 BOOL LoadProcessInject(IN LPCTSTR dllPath);
+// 将自己注入到目标进程然后执行自己的代码
+BOOL LoadMemoryInject(IN DWORD pid);
